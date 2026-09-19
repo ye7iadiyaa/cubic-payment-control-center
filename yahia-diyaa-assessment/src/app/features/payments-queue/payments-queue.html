@@ -1,0 +1,120 @@
+<div class="space-y-4">
+  <div class="flex items-center justify-between">
+    <h1 class="text-xl font-semibold text-surface-900 dark:text-surface-0">Payment Queue</h1>
+    @if (auth.role() === 'MAKER') {
+      <p-button label="New Payment" icon="pi pi-plus" routerLink="/payments/new" />
+    }
+  </div>
+
+  <div class="bg-surface-0 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 rounded-xl p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 items-center">
+    <input
+      type="text"
+      pInputText
+      placeholder="Search reference or beneficiary"
+      class="lg:col-span-2 w-full"
+      [ngModel]="q()"
+      (ngModelChange)="onSearchInput($event)"
+    />
+    <p-select
+      [options]="statusOptions"
+      [(ngModel)]="status"
+      optionLabel="label"
+      optionValue="value"
+      placeholder="Status"
+      [showClear]="true"
+      class="w-full"
+      (onChange)="onFilterChange()"
+      (onClear)="onFilterChange()"
+    />
+    <p-select
+      [options]="typeOptions()"
+      [(ngModel)]="type"
+      optionLabel="label"
+      optionValue="value"
+      placeholder="Type"
+      [showClear]="true"
+      class="w-full"
+      (onChange)="onFilterChange()"
+      (onClear)="onFilterChange()"
+    />
+    <p-select
+      [options]="currencyOptions()"
+      [(ngModel)]="currency"
+      optionLabel="label"
+      optionValue="value"
+      placeholder="Currency"
+      [showClear]="true"
+      class="w-full"
+      (onChange)="onFilterChange()"
+      (onClear)="onFilterChange()"
+    />
+    <div class="flex gap-2">
+      <p-datepicker [(ngModel)]="dateFrom" placeholder="From" dateFormat="yy-mm-dd" [showIcon]="true" class="w-full" (onSelect)="onFilterChange()" (onClearClick)="onFilterChange()" />
+      <p-datepicker [(ngModel)]="dateTo" placeholder="To" dateFormat="yy-mm-dd" [showIcon]="true" class="w-full" (onSelect)="onFilterChange()" (onClearClick)="onFilterChange()" />
+    </div>
+    <div class="lg:col-span-6 flex justify-end">
+      <p-button label="Clear filters" [text]="true" severity="secondary" (onClick)="clearFilters()" />
+    </div>
+  </div>
+
+  <div class="bg-surface-0 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 rounded-xl overflow-hidden">
+    <p-table
+      [value]="store.items()"
+      [lazy]="true"
+      (onLazyLoad)="onLazyLoad($event)"
+      [totalRecords]="store.total()"
+      [loading]="store.loading()"
+      [paginator]="true"
+      [rows]="pageSize()"
+      [first]="(page() - 1) * pageSize()"
+      [rowsPerPageOptions]="[20, 50, 100]"
+      [sortField]="sort()"
+      [sortOrder]="direction() === 'asc' ? 1 : -1"
+      dataKey="id"
+      responsiveLayout="scroll"
+    >
+      <ng-template pTemplate="header">
+        <tr>
+          <th pSortableColumn="reference">Reference <p-sortIcon field="reference" /></th>
+          <th>Debtor Account</th>
+          <th>Beneficiary</th>
+          <th pSortableColumn="type">Type <p-sortIcon field="type" /></th>
+          <th pSortableColumn="currency">Currency <p-sortIcon field="currency" /></th>
+          <th pSortableColumn="amount">Amount <p-sortIcon field="amount" /></th>
+          <th pSortableColumn="status">Status <p-sortIcon field="status" /></th>
+          <th>Maker</th>
+          <th pSortableColumn="createdAt">Created <p-sortIcon field="createdAt" /></th>
+          <th pSortableColumn="updatedAt">Last Updated <p-sortIcon field="updatedAt" /></th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-payment>
+        <tr class="cursor-pointer hover:bg-surface-50 dark:hover:bg-surface-800" (click)="openPayment(payment.id)">
+          <td class="font-medium">{{ payment.reference }}</td>
+          <td>{{ payment.debtorAccountMasked }}</td>
+          <td>{{ payment.beneficiaryName }}</td>
+          <td>{{ payment.type }}</td>
+          <td>{{ payment.currency }}</td>
+          <td>{{ payment.amount | number: '1.2-2' }}</td>
+          <td><p-tag [value]="statusLabel(payment.status)" [severity]="statusSeverity(payment.status)" /></td>
+          <td>{{ payment.makerName }}</td>
+          <td>{{ payment.createdAt | date: 'short' }}</td>
+          <td>{{ payment.updatedAt | date: 'short' }}</td>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="10" class="text-center py-10 text-surface-500">
+            @if (store.error()) {
+              <div class="flex flex-col items-center gap-3">
+                <span>Something went wrong loading payments.</span>
+                <p-button label="Retry" icon="pi pi-refresh" (onClick)="store.retry()" />
+              </div>
+            } @else if (!store.loading()) {
+              <span>No payments match the current filters.</span>
+            }
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </div>
+</div>

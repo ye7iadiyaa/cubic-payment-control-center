@@ -1,0 +1,125 @@
+<div class="max-w-4xl mx-auto space-y-4">
+  <h1 class="text-xl font-semibold text-surface-900 dark:text-surface-0">Bulk Payment Upload</h1>
+
+  <div class="bg-surface-0 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 rounded-xl p-6 space-y-4">
+    <div class="max-w-xs">
+      <label class="block text-sm mb-1 text-surface-600 dark:text-surface-300">Debit Account for this batch</label>
+      <p-select
+        [options]="accounts()"
+        optionLabel="masked"
+        optionValue="id"
+        [ngModel]="debtorAccountId()"
+        (ngModelChange)="debtorAccountId.set($event)"
+        placeholder="Select account"
+        class="w-full"
+      />
+    </div>
+
+    <p-fileupload mode="basic" chooseLabel="Choose CSV" accept=".csv" [maxFileSize]="5242880" (onSelect)="onFileSelect($event)" />
+
+    @if (fileName() && !fileError()) {
+      <p class="text-sm text-surface-500">{{ fileName() }}</p>
+    }
+
+    @if (fileError()) {
+      <p-message severity="error">{{ fileError() }}</p-message>
+    }
+
+    @if (validating()) {
+      <div class="space-y-1">
+        <p-progressbar [value]="validationProgress()" />
+        <p class="text-xs text-surface-500">Validating rows&hellip;</p>
+      </div>
+    }
+  </div>
+
+  @if (rows().length > 0 && !validating()) {
+    <div class="bg-surface-0 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 rounded-xl p-6 space-y-4">
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+        <div><span class="text-surface-500">Total Rows</span><div class="text-lg font-semibold">{{ totalRows() }}</div></div>
+        <div><span class="text-surface-500">Valid</span><div class="text-lg font-semibold text-green-600">{{ validRows().length }}</div></div>
+        <div><span class="text-surface-500">Invalid</span><div class="text-lg font-semibold text-red-600">{{ invalidRows().length }}</div></div>
+        <div><span class="text-surface-500">Duplicate References</span><div class="text-lg font-semibold">{{ duplicateReferences() }}</div></div>
+      </div>
+
+      @if (amountByCurrency() | keyvalue; as totals) {
+        @if (totals.length > 0) {
+          <div class="flex flex-wrap gap-2 text-sm">
+            <span class="text-surface-500">Aggregate (valid rows):</span>
+            @for (entry of totals; track entry.key) {
+              <p-tag [value]="entry.key + ' ' + (entry.value | number: '1.2-3')" severity="secondary" />
+            }
+          </div>
+        }
+      }
+
+      <div class="flex items-center justify-between">
+        <label class="flex items-center gap-2 text-sm text-surface-600 dark:text-surface-300">
+          <input type="checkbox" [ngModel]="showInvalidOnly()" (ngModelChange)="showInvalidOnly.set($event)" />
+          Show invalid rows only
+        </label>
+        <p-button label="Submit Batch" icon="pi pi-upload" [loading]="submitting()" [disabled]="!canSubmit()" (onClick)="submit()" />
+      </div>
+
+      <p-table [value]="visibleRows()" [scrollable]="true" scrollHeight="400px" [virtualScroll]="true" [virtualScrollItemSize]="46" dataKey="rowNumber">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Row</th>
+            <th>Reference</th>
+            <th>Beneficiary</th>
+            <th>Type</th>
+            <th>Currency</th>
+            <th>Amount</th>
+            <th>Execution Date</th>
+            <th>Errors</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-row>
+          <tr [class.bg-red-50]="row.errors.length > 0">
+            <td>{{ row.rowNumber }}</td>
+            <td>{{ row.clientReference }}</td>
+            <td>{{ row.beneficiaryName }}</td>
+            <td>{{ isSwiftLike(row.bankCodeOrSwift) ? 'INTERNATIONAL' : 'DOMESTIC' }}</td>
+            <td>{{ row.currency }}</td>
+            <td>{{ row.amount }}</td>
+            <td>{{ row.executionDate }}</td>
+            <td class="text-red-600 text-sm">{{ row.errors.join(' ') }}</td>
+          </tr>
+        </ng-template>
+      </p-table>
+
+      @if (serverError()) {
+        <p-message severity="error">{{ serverError() }}</p-message>
+      }
+
+      @if (serverResult(); as result) {
+        <div class="border-t border-surface-200 dark:border-surface-700 pt-4 space-y-2">
+          <h2 class="font-medium text-surface-900 dark:text-surface-0">Server Result</h2>
+          <p class="text-sm text-surface-600 dark:text-surface-300">
+            Received {{ result.receivedRows }}, accepted {{ result.acceptedRows }}, rejected {{ result.rejectedRows.length }}. Status: {{ result.status }}.
+          </p>
+          @if (result.rejectedRows.length > 0) {
+            <p-table [value]="result.rejectedRows">
+              <ng-template pTemplate="header">
+                <tr>
+                  <th>Row</th>
+                  <th>Reference</th>
+                  <th>Code</th>
+                  <th>Message</th>
+                </tr>
+              </ng-template>
+              <ng-template pTemplate="body" let-r>
+                <tr>
+                  <td>{{ r.row }}</td>
+                  <td>{{ r.clientReference }}</td>
+                  <td>{{ r.code }}</td>
+                  <td>{{ r.message }}</td>
+                </tr>
+              </ng-template>
+            </p-table>
+          }
+        </div>
+      }
+    </div>
+  }
+</div>

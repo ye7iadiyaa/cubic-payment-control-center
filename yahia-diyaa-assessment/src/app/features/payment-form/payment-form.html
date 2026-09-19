@@ -1,0 +1,246 @@
+@if (loadingData()) {
+  <div class="py-16 text-center text-surface-500">Loading&hellip;</div>
+} @else if (loadError()) {
+  <div class="py-16 text-center text-surface-500">Could not load the data needed for this form.</div>
+} @else {
+  <div class="max-w-3xl mx-auto space-y-6">
+    <h1 class="text-xl font-semibold text-surface-900 dark:text-surface-0">
+      {{ isEditMode() ? 'Edit Payment' : 'New Payment' }}
+    </h1>
+
+    <form [formGroup]="form">
+      <p-stepper [value]="activeStep()" (valueChange)="goToStep($event)">
+        <p-step-list>
+          <p-step [value]="1">Source</p-step>
+          <p-step [value]="2" [disabled]="furthestStep() < 2">Beneficiary</p-step>
+          <p-step [value]="3" [disabled]="furthestStep() < 3">Payment</p-step>
+          <p-step [value]="4" [disabled]="furthestStep() < 4">Review</p-step>
+        </p-step-list>
+
+        <p-step-panels class="bg-surface-0 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 rounded-xl p-6 mt-4">
+          <p-step-panel [value]="1">
+            <ng-template #content>
+              <div class="space-y-4">
+                <div>
+                  <label class="block text-sm mb-1 text-surface-600 dark:text-surface-300">Debit Account</label>
+                  <p-select formControlName="debtorAccountId" [options]="accountOptions()" optionLabel="label" optionValue="id" placeholder="Select account" class="w-full" />
+                  @if (form.controls.debtorAccountId.errors?.['required'] && form.controls.debtorAccountId.touched) {
+                    <small class="text-red-500">Debit account is required.</small>
+                  }
+                  @if (form.controls.debtorAccountId.errors?.['server']; as message) {
+                    <small class="text-red-500">{{ message }}</small>
+                  }
+                </div>
+                <div>
+                  <label class="block text-sm mb-1 text-surface-600 dark:text-surface-300">Payment Type</label>
+                  <p-select formControlName="type" [options]="referenceData()!.paymentTypes" placeholder="Select type" class="w-full" />
+                </div>
+                <div>
+                  <label class="block text-sm mb-1 text-surface-600 dark:text-surface-300">Execution Date</label>
+                  <p-datepicker formControlName="executionDate" [minDate]="minExecutionDate" dateFormat="yy-mm-dd" [showIcon]="true" class="w-full" />
+                  @if (form.controls.executionDate.invalid && form.controls.executionDate.touched && !form.controls.executionDate.errors?.['server']) {
+                    <small class="text-red-500">Execution date is required and cannot be in the past.</small>
+                  }
+                  @if (form.controls.executionDate.errors?.['server']; as message) {
+                    <small class="text-red-500">{{ message }}</small>
+                  }
+                </div>
+              </div>
+            </ng-template>
+          </p-step-panel>
+
+          <p-step-panel [value]="2">
+            <ng-template #content>
+              <div class="space-y-4" formGroupName="beneficiary">
+                <div>
+                  <label class="block text-sm mb-1 text-surface-600 dark:text-surface-300">Existing Beneficiary</label>
+                  <p-select
+                    [options]="filteredBeneficiaries()"
+                    optionLabel="name"
+                    optionValue="id"
+                    [ngModel]="form.controls.beneficiary.controls.id.value"
+                    [ngModelOptions]="{ standalone: true }"
+                    placeholder="Select existing, or fill in a new one below"
+                    [showClear]="true"
+                    class="w-full"
+                    (onChange)="onBeneficiarySelect($event.value)"
+                    (onClear)="onBeneficiarySelect(null)"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm mb-1 text-surface-600 dark:text-surface-300">Beneficiary Name</label>
+                  <input type="text" pInputText formControlName="name" class="w-full" />
+                  @if (form.controls.beneficiary.controls.name.errors?.['required'] && form.controls.beneficiary.controls.name.touched) {
+                    <small class="text-red-500">Beneficiary name is required.</small>
+                  }
+                  @if (form.controls.beneficiary.controls.name.errors?.['server']; as message) {
+                    <small class="text-red-500">{{ message }}</small>
+                  }
+                </div>
+                <div>
+                  <label class="block text-sm mb-1 text-surface-600 dark:text-surface-300">Beneficiary Account / IBAN</label>
+                  <input type="text" pInputText formControlName="account" class="w-full" />
+                  @if (form.controls.beneficiary.controls.account.errors?.['required'] && form.controls.beneficiary.controls.account.touched) {
+                    <small class="text-red-500">Beneficiary account is required.</small>
+                  }
+                  @if (form.controls.beneficiary.controls.account.errors?.['server']; as message) {
+                    <small class="text-red-500">{{ message }}</small>
+                  }
+                </div>
+
+                @if (typeIsInternational()) {
+                  <div>
+                    <label class="block text-sm mb-1 text-surface-600 dark:text-surface-300">SWIFT/BIC</label>
+                    <input type="text" pInputText formControlName="swift" class="w-full" />
+                    @if (form.controls.beneficiary.controls.swift.errors?.['required'] && form.controls.beneficiary.controls.swift.touched) {
+                      <small class="text-red-500">SWIFT/BIC is required for international payments.</small>
+                    }
+                    @if (form.controls.beneficiary.controls.swift.errors?.['server']; as message) {
+                      <small class="text-red-500">{{ message }}</small>
+                    }
+                  </div>
+                  <div>
+                    <label class="block text-sm mb-1 text-surface-600 dark:text-surface-300">Country</label>
+                    <input type="text" pInputText formControlName="country" class="w-full" />
+                    @if (form.controls.beneficiary.controls.country.errors?.['required'] && form.controls.beneficiary.controls.country.touched) {
+                      <small class="text-red-500">Country is required for international payments.</small>
+                    }
+                    @if (form.controls.beneficiary.controls.country.errors?.['server']; as message) {
+                      <small class="text-red-500">{{ message }}</small>
+                    }
+                  </div>
+                  <div>
+                    <label class="block text-sm mb-1 text-surface-600 dark:text-surface-300">Address</label>
+                    <textarea pTextarea formControlName="address" rows="2" class="w-full"></textarea>
+                    @if (form.controls.beneficiary.controls.address.errors?.['required'] && form.controls.beneficiary.controls.address.touched) {
+                      <small class="text-red-500">Address is required for international payments.</small>
+                    }
+                    @if (form.controls.beneficiary.controls.address.errors?.['server']; as message) {
+                      <small class="text-red-500">{{ message }}</small>
+                    }
+                  </div>
+                } @else {
+                  <div>
+                    <label class="block text-sm mb-1 text-surface-600 dark:text-surface-300">Bank Code</label>
+                    <input type="text" pInputText formControlName="bankCode" class="w-full" />
+                    @if (form.controls.beneficiary.controls.bankCode.errors?.['required'] && form.controls.beneficiary.controls.bankCode.touched) {
+                      <small class="text-red-500">Bank code is required for domestic payments.</small>
+                    }
+                    @if (form.controls.beneficiary.controls.bankCode.errors?.['server']; as message) {
+                      <small class="text-red-500">{{ message }}</small>
+                    }
+                  </div>
+                }
+              </div>
+            </ng-template>
+          </p-step-panel>
+
+          <p-step-panel [value]="3">
+            <ng-template #content>
+              <div class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                  <div>
+                    <label class="block text-sm mb-1 text-surface-600 dark:text-surface-300">Currency</label>
+                    <p-select formControlName="currency" [options]="currencyOptions()" optionLabel="label" optionValue="value" placeholder="Currency" class="w-full" />
+                    @if (form.controls.currency.errors?.['server']; as message) {
+                      <small class="text-red-500">{{ message }}</small>
+                    }
+                  </div>
+                  <div>
+                    <label class="block text-sm mb-1 text-surface-600 dark:text-surface-300">Amount</label>
+                    <p-inputnumber
+                      formControlName="amount"
+                      [minFractionDigits]="selectedCurrencyMinorUnits()"
+                      [maxFractionDigits]="selectedCurrencyMinorUnits()"
+                      class="w-full"
+                    />
+                    @if (form.controls.amount.errors?.['notPositive']) {
+                      <small class="text-red-500">Amount must be greater than zero.</small>
+                    }
+                    @if (form.controls.amount.errors?.['precision']) {
+                      <small class="text-red-500">Amount cannot have more than {{ selectedCurrencyMinorUnits() }} decimal place(s).</small>
+                    }
+                    @if (form.controls.amount.errors?.['server']; as message) {
+                      <small class="text-red-500">{{ message }}</small>
+                    }
+                  </div>
+                </div>
+                <div>
+                  <label class="block text-sm mb-1 text-surface-600 dark:text-surface-300">Purpose Code</label>
+                  <p-select formControlName="purposeCode" [options]="referenceData()!.purposeCodes" placeholder="Purpose code" class="w-full" />
+                  @if (form.controls.purposeCode.errors?.['server']; as message) {
+                    <small class="text-red-500">{{ message }}</small>
+                  }
+                </div>
+                @if (typeIsInternational()) {
+                  <div>
+                    <label class="block text-sm mb-1 text-surface-600 dark:text-surface-300">Charge Option</label>
+                    <p-select formControlName="chargeOption" [options]="referenceData()!.chargeOptions" placeholder="Charge option" class="w-full" />
+                    @if (form.controls.chargeOption.errors?.['server']; as message) {
+                      <small class="text-red-500">{{ message }}</small>
+                    }
+                  </div>
+                }
+                <div>
+                  <label class="block text-sm mb-1 text-surface-600 dark:text-surface-300">Remittance Information</label>
+                  <textarea pTextarea formControlName="remittanceInformation" rows="3" class="w-full"></textarea>
+                  @if (form.controls.remittanceInformation.errors?.['server']; as message) {
+                    <small class="text-red-500">{{ message }}</small>
+                  }
+                </div>
+              </div>
+            </ng-template>
+          </p-step-panel>
+
+          <p-step-panel [value]="4">
+            <ng-template #content>
+              <div class="space-y-4">
+                <div class="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                  <div><span class="text-surface-500">Debit Account</span><div class="font-medium">{{ selectedAccount()?.masked }}</div></div>
+                  <div><span class="text-surface-500">Beneficiary</span><div class="font-medium">{{ form.controls.beneficiary.controls.name.value }}</div></div>
+                  <div><span class="text-surface-500">Beneficiary Account</span><div class="font-medium">{{ form.controls.beneficiary.controls.account.value }}</div></div>
+                  <div><span class="text-surface-500">Amount</span><div class="font-medium">{{ form.controls.amount.value }} {{ form.controls.currency.value }}</div></div>
+                  <div><span class="text-surface-500">Execution Date</span><div class="font-medium">{{ form.controls.executionDate.value ? toIso(form.controls.executionDate.value!) : '' }}</div></div>
+                  <div><span class="text-surface-500">Purpose</span><div class="font-medium">{{ form.controls.purposeCode.value }}</div></div>
+                </div>
+
+                @if (!form.valid) {
+                  <p-message severity="warn">Some fields still need attention - go back and complete the earlier steps.</p-message>
+                }
+
+                @if (needsFxQuote() && selectedAccount()) {
+                  <app-fx-quote-panel
+                    [debitAccountId]="selectedAccount()!.id"
+                    [sourceCurrency]="selectedAccount()!.currency"
+                    [targetCurrency]="form.controls.currency.value"
+                    [targetAmount]="form.controls.amount.value ?? 0"
+                    (quoteChange)="onQuoteChange($event)"
+                  />
+                }
+                @if (fxQuoteError()) {
+                  <p-message severity="error">{{ fxQuoteError() }}</p-message>
+                }
+
+                @if (serverError()) {
+                  <p-message severity="error">{{ serverError() }}</p-message>
+                }
+              </div>
+            </ng-template>
+          </p-step-panel>
+        </p-step-panels>
+      </p-stepper>
+
+      <div class="flex items-center justify-between mt-4">
+        <p-button label="Back" icon="pi pi-arrow-left" severity="secondary" [outlined]="true" [disabled]="activeStep() === 1" (onClick)="goBack()" />
+        <div class="flex gap-2">
+          @if (activeStep() < 4) {
+            <p-button label="Next" icon="pi pi-arrow-right" iconPos="right" (onClick)="goNext()" />
+          } @else {
+            <p-button label="Save Draft" severity="secondary" [outlined]="true" [loading]="saving()" [disabled]="saving() || submitting()" (onClick)="saveDraft()" />
+            <p-button label="Submit for Check" icon="pi pi-send" [loading]="submitting()" [disabled]="saving() || submitting() || !canSubmit()" (onClick)="submitForCheck()" />
+          }
+        </div>
+      </div>
+    </form>
+  </div>
+}

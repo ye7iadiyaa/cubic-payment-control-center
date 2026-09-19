@@ -1,0 +1,131 @@
+@if (loading()) {
+  <div class="space-y-3">
+    <p-skeleton height="2rem" width="16rem" />
+    <p-skeleton height="12rem" />
+  </div>
+} @else if (loadError()) {
+  <div class="text-center py-16">
+    <p class="text-surface-500 mb-3">Could not load this payment.</p>
+    <p-button label="Retry" icon="pi pi-refresh" (onClick)="reload()" />
+  </div>
+} @else if (payment(); as p) {
+  <div class="space-y-4">
+    <div class="flex items-center justify-between flex-wrap gap-3">
+      <div>
+        <a routerLink="/payments" class="text-sm text-primary-600 hover:underline">&larr; Back to queue</a>
+        <h1 class="text-xl font-semibold text-surface-900 dark:text-surface-0 mt-1">{{ p.reference }}</h1>
+      </div>
+      <div class="flex items-center gap-2">
+        <p-tag [value]="statusLabel(p.status)" [severity]="statusSeverity(p.status)" />
+
+        @if (canEdit()) {
+          <p-button label="Edit" icon="pi pi-pencil" severity="secondary" [outlined]="true" (onClick)="edit()" [disabled]="actionInFlight()" />
+        }
+        @if (canEdit()) {
+          <p-button label="Submit" icon="pi pi-send" (onClick)="submit()" [loading]="actionInFlight()" [disabled]="actionInFlight()" />
+        }
+        @if (canCancel()) {
+          <p-button label="Cancel Draft" icon="pi pi-times" severity="danger" [outlined]="true" (onClick)="confirmCancel()" [disabled]="actionInFlight()" />
+        }
+        @if (canDecide()) {
+          <p-button label="Return" icon="pi pi-reply" severity="warn" [outlined]="true" (onClick)="openDecisionDialog('RETURN')" [disabled]="actionInFlight()" />
+          <p-button label="Reject" icon="pi pi-ban" severity="danger" [outlined]="true" (onClick)="openDecisionDialog('REJECT')" [disabled]="actionInFlight()" />
+          <p-button
+            label="Approve"
+            icon="pi pi-check"
+            severity="success"
+            (onClick)="confirmApprove()"
+            [loading]="actionInFlight()"
+            [disabled]="actionInFlight() || !canApprove()"
+            [pTooltip]="canApprove() ? '' : 'You cannot approve a payment you created.'"
+          />
+        }
+      </div>
+    </div>
+
+    @if (staleNotice()) {
+      <p-message severity="warn">This payment was updated by someone else. The latest details have been reloaded - please review before acting again.</p-message>
+    }
+    @if (actionError()) {
+      <p-message severity="error">{{ actionError() }}</p-message>
+    }
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div class="lg:col-span-2 space-y-4">
+        <p-card header="Payment Summary">
+          <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 text-sm">
+            <div><dt class="text-surface-500">Type</dt><dd class="font-medium">{{ p.type }}</dd></div>
+            <div><dt class="text-surface-500">Amount</dt><dd class="font-medium">{{ p.amount | number: '1.2-3' }} {{ p.currency }}</dd></div>
+            <div><dt class="text-surface-500">Execution Date</dt><dd class="font-medium">{{ p.executionDate }}</dd></div>
+            <div><dt class="text-surface-500">Purpose Code</dt><dd class="font-medium">{{ p.purposeCode }}</dd></div>
+            <div><dt class="text-surface-500">Row Version</dt><dd class="font-medium">{{ p.rowVersion }}</dd></div>
+            @if (p.chargeOption) {
+              <div><dt class="text-surface-500">Charge Option</dt><dd class="font-medium">{{ p.chargeOption }}</dd></div>
+            }
+            <div class="sm:col-span-2"><dt class="text-surface-500">Remittance Information</dt><dd class="font-medium">{{ p.remittanceInformation }}</dd></div>
+          </dl>
+        </p-card>
+
+        <p-card header="Source Account">
+          <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 text-sm">
+            <div><dt class="text-surface-500">Account</dt><dd class="font-medium">{{ p.debtorAccount | accountDisplay }}</dd></div>
+            <div><dt class="text-surface-500">Currency</dt><dd class="font-medium">{{ p.debtorAccount.currency }}</dd></div>
+          </dl>
+        </p-card>
+
+        <p-card header="Beneficiary">
+          <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 text-sm">
+            <div><dt class="text-surface-500">Name</dt><dd class="font-medium">{{ p.beneficiary.name }}</dd></div>
+            <div><dt class="text-surface-500">Account</dt><dd class="font-medium">{{ p.beneficiary.account }}</dd></div>
+            @if (p.beneficiary.bankCode) {
+              <div><dt class="text-surface-500">Bank Code</dt><dd class="font-medium">{{ p.beneficiary.bankCode }}</dd></div>
+            }
+            @if (p.beneficiary.swift) {
+              <div><dt class="text-surface-500">SWIFT/BIC</dt><dd class="font-medium">{{ p.beneficiary.swift }}</dd></div>
+              <div><dt class="text-surface-500">Country</dt><dd class="font-medium">{{ p.beneficiary.country }}</dd></div>
+              <div class="sm:col-span-2"><dt class="text-surface-500">Address</dt><dd class="font-medium">{{ p.beneficiary.address }}</dd></div>
+            }
+          </dl>
+        </p-card>
+
+        <p class="text-xs text-surface-400">Maker: {{ p.makerName }}</p>
+      </div>
+
+      <div>
+        <p-card header="Audit Timeline">
+          <p-timeline [value]="p.audit">
+            <ng-template pTemplate="content" let-event>
+              <div class="text-sm">
+                <div class="font-medium text-surface-900 dark:text-surface-0">{{ event.event }}</div>
+                <div class="text-surface-500">{{ event.actorName }} &middot; {{ event.at | date: 'short' }}</div>
+                @if (event.reason) {
+                  <div class="mt-1 text-surface-600 dark:text-surface-300 italic">&ldquo;{{ event.reason }}&rdquo;</div>
+                }
+              </div>
+            </ng-template>
+          </p-timeline>
+        </p-card>
+      </div>
+    </div>
+  </div>
+
+  <p-dialog
+    [visible]="decisionDialogType() !== null"
+    [modal]="true"
+    [style]="{ width: '28rem' }"
+    [header]="decisionDialogType() === 'RETURN' ? 'Return payment' : 'Reject payment'"
+    (onHide)="closeDecisionDialog()"
+  >
+    <label for="decision-reason" class="block text-sm text-surface-600 dark:text-surface-300 mb-2">Reason (required)</label>
+    <textarea id="decision-reason" pTextarea rows="4" class="w-full" [ngModel]="decisionReason()" (ngModelChange)="decisionReason.set($event)"></textarea>
+    <div class="flex justify-end gap-2 mt-4">
+      <p-button label="Cancel" severity="secondary" [outlined]="true" (onClick)="closeDecisionDialog()" />
+      <p-button
+        [label]="decisionDialogType() === 'RETURN' ? 'Return' : 'Reject'"
+        severity="danger"
+        [disabled]="!decisionReason().trim()"
+        (onClick)="confirmDecisionDialog()"
+      />
+    </div>
+  </p-dialog>
+}

@@ -1,0 +1,7 @@
+# Backup of the Angular project's original nested .git (kept locally for
+# safety while restructuring into this single repo, not part of the project).
+yahia-diyaa-assessment/.git.bak/
+
+# Stray local archives, if they ever come back.
+*.rar
+*.zip
